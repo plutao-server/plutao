@@ -13,7 +13,8 @@ class PlutaoWorld extends World with DragCallbacks {
   Vector2 camPos = Vector2(0.0, 0.0);
   TiledComponent? tiledMap;
   late Vector2 canvasSize;
-  Vector2? prevMousePositionTiledMap;
+  //Vector2? prevMousePositionTiledMap;
+  int? prevMousePosX, prevMousePosY;
   Gid placeableId = Gid.fromInt(881);
   Gid emptyId = Gid.fromInt(0);
   Gid? unplaceableId;
@@ -52,38 +53,30 @@ class PlutaoWorld extends World with DragCallbacks {
   }
 
   void onMouseMove(PointerHoverInfo info) {
-    if (tiledMap != null) {
-      // var data = tiledMap.tileMap.getTileData(layerId: 1, x: info.eventPosition.global.x.toInt(), y: info.eventPosition.global.y.toInt());
-      // var data =tiledMap.tileMap.getTileData(layerId: 1, x: 10, y: 0);
-      // var objectLayer = tiledMap.tileMap.getLayer<TileLayer>("Object Layer");
-      // print(info.eventPosition.widget.x.toInt());
-      // print(info.eventPosition.widget.y.toInt());
-      //  print(data?.tile);
+    assert(tiledMap != null);
+    final tlp = tiledMap!.topLeftPosition - camPos;
+    final mp = Vector2(info.eventPosition.widget.x - canvasSize.x / 2,
+        (info.eventPosition.widget.y - canvasSize.y / 2));
+    final brp = tlp + tiledMap!.scaledSize; //bottom right of the map
 
-      //print(tiledMap.topLeftPosition + camPos);
-      
-      final tlp =tiledMap!.topLeftPosition -camPos;
-      final mp = Vector2(info.eventPosition.widget.x - canvasSize.x / 2,
-          (info.eventPosition.widget.y - canvasSize.y / 2));
-      final brp = tlp + tiledMap!.scaledSize; //bottom right of the map
+    if (!(mp.x < tlp.x || mp.y < tlp.y || mp.x > brp.x || mp.y > brp.y)) {
+      final tsp = (mp + camPos + tiledMap!.scaledSize / 2) / 32;
 
-      if (mp.x < tlp.x || mp.y < tlp.y || mp.x > brp.x || mp.y > brp.y) {
-        print("Out of map");
-      } else {
-        final tsp = (mp + camPos + tiledMap!.scaledSize/2)/32;
-        print(tsp);
-        
-        if (prevMousePositionTiledMap != null) {
+      if (prevMousePosX != null || prevMousePosY != null) {
+        if (tsp.x.toInt() / 32 != prevMousePosX! / 32 ||
+            tsp.y.toInt() / 32 != prevMousePosY! / 32) {
           tiledMap!.tileMap.setTileData(
-              layerId: 1,
-              x: prevMousePositionTiledMap!.x.toInt(),
-              y: prevMousePositionTiledMap!.y.toInt(),
-              gid: emptyId);
+              layerId: 1, x: prevMousePosX!, y: prevMousePosY!, gid: emptyId);
         }
-        tiledMap!.tileMap.setTileData(
-            layerId: 1, x: tsp.x.toInt(), y: tsp.y.toInt(), gid: placeableId);
-        prevMousePositionTiledMap = tsp;
       }
+
+      prevMousePosX = tsp.x.toInt();
+      prevMousePosY = tsp.y.toInt();
+
+      tiledMap!.tileMap.setTileData(
+          layerId: 1, x: prevMousePosX!, y: prevMousePosY!, gid: placeableId);
+    } else {
+      print("Out of map");
     }
   }
 
