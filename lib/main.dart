@@ -1,14 +1,17 @@
 import 'package:flame/camera.dart';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
+import 'package:flame/experimental.dart';
 import 'package:flame/game.dart';
+import 'package:flame/geometry.dart';
 import 'package:flame_tiled/flame_tiled.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:plutao/tower-selector.dart';
 
 class WorldSprite extends SpriteComponent {}
 
-class PlutaoWorld extends World with DragCallbacks {
+class PlutaoWorld extends World with DragCallbacks, TapCallbacks {
   bool _isDragged = false;
   Vector2 camPos = Vector2(0.0, 0.0);
   TiledComponent? tiledMap;
@@ -17,6 +20,7 @@ class PlutaoWorld extends World with DragCallbacks {
   int? prevMousePosX, prevMousePosY;
   Gid placeableId = Gid.fromInt(881);
   Gid emptyId = Gid.fromInt(0);
+  Gid towerId = Gid.fromInt(884);
   Gid? unplaceableId;
 
   @override
@@ -28,7 +32,6 @@ class PlutaoWorld extends World with DragCallbacks {
     tiledMap = await TiledComponent.load("map.tmx", Vector2.all(32.0));
     tiledMap!.anchor = Anchor.center;
     var objectLayer = tiledMap!.tileMap.getLayer<TileLayer>("Object Layer");
-
     CameraComponent.currentCamera?.moveTo(camPos);
     await add(tiledMap!);
   }
@@ -51,9 +54,27 @@ class PlutaoWorld extends World with DragCallbacks {
     // TODO: implement onDragUpdate
     camPos -= event.localDelta;
   }
-
+  @override
+  void onTapUp(TapUpEvent event) {
+    if(tiledMap != null){
+      
+      final tlp = tiledMap!.topLeftPosition - camPos;
+      final mp = Vector2(event.devicePosition.x - canvasSize.x / 2,
+          (event.devicePosition.y - canvasSize.y / 2));
+          
+      final brp = tlp + tiledMap!.scaledSize;
+       print(mp);
+       if (!(mp.x < tlp.x || mp.y < tlp.y || mp.x > brp.x || mp.y > brp.y)) {
+        final tsp = (mp + camPos + tiledMap!.scaledSize / 2) / 32;
+       
+        tiledMap!.tileMap.setTileData(layerId: 2, x: tsp.x.toInt(), y: tsp.y.toInt(), gid: towerId);
+       }
+    }
+    
+    
+  }
   void onMouseMove(PointerHoverInfo info) {
-    assert(tiledMap != null);
+    if(tiledMap == null) return;
     final tlp = tiledMap!.topLeftPosition - camPos;
     final mp = Vector2(info.eventPosition.widget.x - canvasSize.x / 2,
         (info.eventPosition.widget.y - canvasSize.y / 2));
@@ -87,6 +108,7 @@ class PlutaoWorld extends World with DragCallbacks {
   }
 }
 
+
 class PlutaoGame extends FlameGame<PlutaoWorld>
     with SingleGameInstance, MouseMovementDetector {
   late final SpriteComponent test_obj;
@@ -97,7 +119,21 @@ class PlutaoGame extends FlameGame<PlutaoWorld>
   Future<void> onLoad() async {
     await super.onLoad();
     await images.load('stardew-valley-test.jpg');
+    await images.load('tower.png', key: 'tower');
+    await images.load('recycle.png', key: 'recycle');
+    await images.load('power.png', key: 'power');
     camera.viewfinder.anchor = Anchor.center;
+    var blocks = ["tower", "recycle", "power"];
+    var uniqueList = Set.from(blocks).toList();
+    var hudChildren = blocks.map((blockName) => 
+      
+      SpriteComponent.fromImage(images.fromCache(blockName), position:  Vector2(32, 32)*(uniqueList.indexOf(blockName) * 1))
+      );
+    print(hudChildren);
+    camera.viewport.add(PositionComponent(
+      position: Vector2(canvasSize.x - 150, canvasSize.y / 2),
+      children: [TowerSelector(images,blocks, canvasSize)]
+    ));
     world.canvasSize = canvasSize;
   }
 
@@ -110,9 +146,11 @@ class PlutaoGame extends FlameGame<PlutaoWorld>
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
   }
+  
 }
 
 void main() {
   final mGame = PlutaoGame(PlutaoWorld());
   runApp(GameWidget(game: mGame));
+  
 }
