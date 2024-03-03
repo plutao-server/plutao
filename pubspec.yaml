@@ -37,6 +37,7 @@ dependencies:
   cupertino_icons: ^1.0.6
   flame: ^1.16.0
   flame_tiled: ^1.19.0
+  tiled: ^0.10.2
 
 dev_dependencies:
   flutter_test:
@@ -61,7 +62,9 @@ flutter:
   uses-material-design: true
   assets: 
     - assets/images/
+    - assets/images/towers/
     - assets/tiles/
+    
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
