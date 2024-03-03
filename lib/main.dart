@@ -21,7 +21,11 @@ class PlutaoWorld extends World with DragCallbacks, TapCallbacks {
   Gid placeableId = Gid.fromInt(881);
   Gid emptyId = Gid.fromInt(0);
   Gid towerId = Gid.fromInt(884);
-  Gid? unplaceableId;
+  Gid powerId = Gid.fromInt(885);
+  Gid recycleId = Gid.fromInt(889);
+  Gid currrentlySelectedTower = Gid.fromInt(884);
+
+  Gid unplaceableId = Gid.fromInt(894);
 
   @override
   Future<void> onLoad() async {
@@ -54,27 +58,32 @@ class PlutaoWorld extends World with DragCallbacks, TapCallbacks {
     // TODO: implement onDragUpdate
     camPos -= event.localDelta;
   }
+
   @override
   void onTapUp(TapUpEvent event) {
-    if(tiledMap != null){
-      
+    if (tiledMap != null) {
       final tlp = tiledMap!.topLeftPosition - camPos;
       final mp = Vector2(event.devicePosition.x - canvasSize.x / 2,
           (event.devicePosition.y - canvasSize.y / 2));
-          
+
       final brp = tlp + tiledMap!.scaledSize;
-       print(mp);
-       if (!(mp.x < tlp.x || mp.y < tlp.y || mp.x > brp.x || mp.y > brp.y)) {
+      print(mp);
+      if (!(mp.x < tlp.x || mp.y < tlp.y || mp.x > brp.x || mp.y > brp.y)) {
         final tsp = (mp + camPos + tiledMap!.scaledSize / 2) / 32;
-       
-        tiledMap!.tileMap.setTileData(layerId: 2, x: tsp.x.toInt(), y: tsp.y.toInt(), gid: towerId);
-       }
+        if (tiledMap!.tileMap
+                .getTileData(layerId: 1, x: tsp.x.toInt(), y: tsp.y.toInt())!.tile == 0  && tiledMap!.tileMap.getTileData(layerId: 0, x: tsp.x.toInt(), y: tsp.y.toInt())!.tile == 162) {
+          tiledMap!.tileMap.setTileData(
+              layerId: 1,
+              x: tsp.x.toInt(),
+              y: tsp.y.toInt(),
+              gid: currrentlySelectedTower);
+        }
+      }
     }
-    
-    
   }
+
   void onMouseMove(PointerHoverInfo info) {
-    if(tiledMap == null) return;
+    if (tiledMap == null) return;
     final tlp = tiledMap!.topLeftPosition - camPos;
     final mp = Vector2(info.eventPosition.widget.x - canvasSize.x / 2,
         (info.eventPosition.widget.y - canvasSize.y / 2));
@@ -87,15 +96,21 @@ class PlutaoWorld extends World with DragCallbacks, TapCallbacks {
         if (tsp.x.toInt() / 32 != prevMousePosX! / 32 ||
             tsp.y.toInt() / 32 != prevMousePosY! / 32) {
           tiledMap!.tileMap.setTileData(
-              layerId: 1, x: prevMousePosX!, y: prevMousePosY!, gid: emptyId);
+              layerId: 2, x: prevMousePosX!, y: prevMousePosY!, gid: emptyId);
         }
       }
 
       prevMousePosX = tsp.x.toInt();
       prevMousePosY = tsp.y.toInt();
-
+      if (tiledMap!.tileMap
+                .getTileData(layerId: 1, x: tsp.x.toInt(), y: tsp.y.toInt())!.tile != 0 || tiledMap!.tileMap.getTileData(layerId: 0, x: tsp.x.toInt(), y: tsp.y.toInt())!.tile != 162){
+                  print("not 0");
+tiledMap!.tileMap.setTileData(
+          layerId: 2, x: prevMousePosX!, y: prevMousePosY!, gid: unplaceableId); //set to unplaceable
+                  return;
+                }
       tiledMap!.tileMap.setTileData(
-          layerId: 1, x: prevMousePosX!, y: prevMousePosY!, gid: placeableId);
+          layerId: 2, x: prevMousePosX!, y: prevMousePosY!, gid: placeableId);
     } else {
       print("Out of map");
     }
@@ -106,14 +121,21 @@ class PlutaoWorld extends World with DragCallbacks, TapCallbacks {
     tp = tp - canvasSize / 2;
     return tp;
   }
-}
 
+  void selectedTowerChange(Gid selectedTower) {
+    print("Changed");
+    currrentlySelectedTower = selectedTower;
+  }
+}
 
 class PlutaoGame extends FlameGame<PlutaoWorld>
     with SingleGameInstance, MouseMovementDetector {
   late final SpriteComponent test_obj;
 
   PlutaoGame(PlutaoWorld world) : super(world: world);
+  void onChangeSelect(int towerGid) {
+    world.selectedTowerChange(Gid.fromInt(towerGid));
+  }
 
   @override
   Future<void> onLoad() async {
@@ -122,18 +144,17 @@ class PlutaoGame extends FlameGame<PlutaoWorld>
     await images.load('tower.png', key: 'tower');
     await images.load('recycle.png', key: 'recycle');
     await images.load('power.png', key: 'power');
+    await images.load('placeable.png', key: 'placeable');
     camera.viewfinder.anchor = Anchor.center;
     var blocks = ["tower", "recycle", "power"];
     var uniqueList = Set.from(blocks).toList();
-    var hudChildren = blocks.map((blockName) => 
-      
-      SpriteComponent.fromImage(images.fromCache(blockName), position:  Vector2(32, 32)*(uniqueList.indexOf(blockName) * 1))
-      );
+    var hudChildren = blocks.map((blockName) => SpriteComponent.fromImage(
+        images.fromCache(blockName),
+        position: Vector2(32, 32) * (uniqueList.indexOf(blockName) * 1)));
     print(hudChildren);
     camera.viewport.add(PositionComponent(
-      position: Vector2(canvasSize.x - 150, canvasSize.y / 2),
-      children: [TowerSelector(images,blocks, canvasSize)]
-    ));
+        position: Vector2(canvasSize.x - 150, canvasSize.y / 2),
+        children: [TowerSelector(images, blocks, canvasSize, onChangeSelect)]));
     world.canvasSize = canvasSize;
   }
 
@@ -146,11 +167,9 @@ class PlutaoGame extends FlameGame<PlutaoWorld>
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
   }
-  
 }
 
 void main() {
   final mGame = PlutaoGame(PlutaoWorld());
   runApp(GameWidget(game: mGame));
-  
 }
