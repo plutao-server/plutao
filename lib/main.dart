@@ -6,7 +6,7 @@ import 'package:flame/game.dart';
 import 'package:flame_tiled/flame_tiled.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-import 'package:plutao/tower-selector.dart';
+import 'package:plutao/tower_selector.dart';
 
 class WorldSprite extends SpriteComponent {}
 
